@@ -28,7 +28,7 @@ contract IntervalTree {
     constant
     returns (uint begin, uint end, bytes32 data)
   {
-    return tree.intervalAt(point, ooffset);
+    return tree.intervalAt(point, offset);
   }
 
 }
