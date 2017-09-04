@@ -24,4 +24,11 @@ contract IntervalTree {
     return tree.intervalsAt(point);
   }
 
+  function intervalAt(uint point, uint offset)
+    constant
+    returns (uint begin, uint end, bytes32 data)
+  {
+    return tree.intervalAt(point, ooffset);
+  }
+
 }

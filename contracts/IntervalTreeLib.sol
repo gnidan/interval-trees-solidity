@@ -85,6 +85,78 @@ library IntervalTreeLib {
   }
 
   /*
+   * search
+   */
+  function intervalsAt(Tree storage tree, uint point)
+    constant
+    returns (uint)
+  {
+    return search(tree, point).length;
+  }
+
+  function intervalAt(Tree storage tree, uint point, uint offset)
+    constant
+    returns (uint begin, uint end, bytes32 data)
+  {
+    var results = search(tree, point);
+
+    require(offset < results.length);
+
+    var interval = tree.intervals[results[offset]];
+
+    return (interval.begin, interval.end, interval.data);
+  }
+
+  function search(Tree storage tree, uint point)
+    constant
+    internal
+    returns (uint[] memory intervalIDs)
+  {
+    intervalIDs = new uint[](0);
+    uint[] memory tempIDs;
+    uint[] memory addedIDs;
+    uint i;
+    bool searchLower;
+    bool searchHigher;
+
+    uint curID = tree.rootNode;
+    var curNode = tree.nodes[curID];
+    (addedIDs, searchLower, searchHigher) = _searchNode(curNode, point);
+    tempIDs = new uint[](intervalIDs.length + addedIDs.length);
+    for (i = 0; i < intervalIDs.length; i++) {
+      tempIDs[i] = intervalIDs[i];
+    }
+    for (i = 0; i < addedIDs.length; i++) {
+      tempIDs[i + intervalIDs.length] = addedIDs[i];
+    }
+    intervalIDs = tempIDs;
+
+    while (searchLower || searchHigher) {
+      if (searchLower) {
+	curID = curNode.nodeBefore;
+      } else { // searchHigher
+	curID = curNode.nodeAfter;
+      }
+      if (curID == 0x0) {
+	break;
+      }
+
+      curNode = tree.nodes[curID];
+      (addedIDs, searchLower, searchHigher) = _searchNode(curNode, point);
+
+      tempIDs = new uint[](intervalIDs.length + addedIDs.length);
+      for (i = 0; i < intervalIDs.length; i++) {
+	tempIDs[i] = intervalIDs[i];
+      }
+      for (i = 0; i < addedIDs.length; i++) {
+	tempIDs[i + intervalIDs.length] = addedIDs[i];
+      }
+      intervalIDs = tempIDs;
+    }
+  }
+
+
+  /*
    * insert helpers
    */
   function _createInterval(Tree storage tree, uint begin, uint end, bytes32 data)
@@ -116,8 +188,8 @@ library IntervalTreeLib {
 
   function _addIntervalToNode(Node storage node, uint begin, uint end, uint intervalID) {
     var _intervalID = bytes32(intervalID);
-    var _begin = getBeginIndexKey(begin);
-    var _end = getEndIndexKey(end);
+    var _begin = _getBeginIndexKey(begin);
+    var _end = _getEndIndexKey(end);
 
     node.beginIndex.insert(_intervalID, _begin);
     node.endIndex.insert(_intervalID, _end);
@@ -141,6 +213,9 @@ library IntervalTreeLib {
     }
   }
 
+  /*
+   * search helpers
+   */
   function _searchNode(Node storage node, uint point)
     constant
     internal
@@ -197,68 +272,17 @@ library IntervalTreeLib {
     }
   }
 
+
+
   /*
-   * constant functions / helpers
+   * Grove linked list traversal
    */
-  function search(Tree storage tree, uint point)
-    constant
-    internal
-    returns (uint[] memory intervalIDs)
-  {
-    intervalIDs = new uint[](0);
-    uint[] memory tempIDs;
-    uint[] memory addedIDs;
-    uint i;
-    bool searchLower;
-    bool searchHigher;
-
-    uint curID = tree.rootNode;
-    var curNode = tree.nodes[curID];
-    (addedIDs, searchLower, searchHigher) = _searchNode(curNode, point);
-    tempIDs = new uint[](intervalIDs.length + addedIDs.length);
-    for (i = 0; i < intervalIDs.length; i++) {
-      tempIDs[i] = intervalIDs[i];
-    }
-    for (i = 0; i < addedIDs.length; i++) {
-      tempIDs[i + intervalIDs.length] = addedIDs[i];
-    }
-    intervalIDs = tempIDs;
-
-    while (searchLower || searchHigher) {
-      if (searchLower) {
-	curID = curNode.nodeBefore;
-      } else { // searchHigher
-	curID = curNode.nodeAfter;
-      }
-      if (curID == 0x0) {
-	break;
-      }
-
-      curNode = tree.nodes[curID];
-      (addedIDs, searchLower, searchHigher) = _searchNode(curNode, point);
-
-      tempIDs = new uint[](intervalIDs.length + addedIDs.length);
-      for (i = 0; i < intervalIDs.length; i++) {
-	tempIDs[i] = intervalIDs[i];
-      }
-      for (i = 0; i < addedIDs.length; i++) {
-	tempIDs[i + intervalIDs.length] = addedIDs[i];
-      }
-      intervalIDs = tempIDs;
-    }
-  }
-
-  function intervalsAt(Tree storage tree, uint point) constant returns (uint) {
-    return search(tree, point).length;
-  }
-
-
   function _begin(Node storage node, bytes32 indexNode) constant returns (uint) {
-    return getBegin(node.beginIndex.getNodeValue(indexNode));
+    return _getBegin(node.beginIndex.getNodeValue(indexNode));
   }
 
   function _end(Node storage node, bytes32 indexNode) constant returns (uint) {
-    return getEnd(node.endIndex.getNodeValue(indexNode));
+    return _getEnd(node.endIndex.getNodeValue(indexNode));
   }
 
   function _next(Node storage node, bytes32 cur) constant returns (bytes32) {
@@ -269,23 +293,26 @@ library IntervalTreeLib {
     return node.endIndex.getPreviousNode(cur);
   }
 
-  function getBeginIndexKey(uint begin) constant internal returns (int) {
+  /*
+   * uint / int conversions for Grove nodeIDs
+   */
+  function _getBeginIndexKey(uint begin) constant internal returns (int) {
     // convert to signed int in order-preserving manner
     return int(begin - 0x8000000000000000000000000000000000000000000000000000000000000000);
   }
 
-  function getEndIndexKey(uint end) constant internal returns (int) {
+  function _getEndIndexKey(uint end) constant internal returns (int) {
     // convert to signed int in order-preserving manner
     return int(end - 0x8000000000000000000000000000000000000000000000000000000000000000);
   }
 
-  function getBegin(int beginIndexKey) constant internal returns (uint) {
-    // convert to signed int in order-preserving manner
+  function _getBegin(int beginIndexKey) constant internal returns (uint) {
+    // convert to unsigned int in order-preserving manner
     return uint(beginIndexKey) + 0x8000000000000000000000000000000000000000000000000000000000000000;
   }
 
-  function getEnd(int endIndexKey) constant internal returns (uint) {
-    // convert to signed int in order-preserving manner
+  function _getEnd(int endIndexKey) constant internal returns (uint) {
+    // convert to unsigned int in order-preserving manner
     return uint(endIndexKey) + 0x8000000000000000000000000000000000000000000000000000000000000000;
   }
 }
