@@ -5,8 +5,8 @@ import "./vendor/grove/GroveLib.sol";
 library IntervalTreeLib {
   using GroveLib for GroveLib.Index;
 
-  bool constant TRAVERSE_BEFORE = false;
-  bool constant TRAVERSE_AFTER = true;
+  bool constant TRAVERSED_EARLIER = false;
+  bool constant TRAVERSED_LATER = true;
 
   struct Tree {
     // global table of intervals
@@ -75,11 +75,11 @@ library IntervalTreeLib {
       if (end <= curNode.center) {
 	// traverse before
 	curID = curNode.nodeBefore;
-	recurseDirection = TRAVERSE_BEFORE;
+	recurseDirection = TRAVERSED_EARLIER;
       } else if (begin > curNode.center) {
 	// traverse after
 	curID = curNode.nodeAfter;
-	recurseDirection = TRAVERSE_AFTER;
+	recurseDirection = TRAVERSED_LATER;
       } else {
 	// found!
 	found = true;
@@ -91,7 +91,7 @@ library IntervalTreeLib {
 	curID = _createNode(tree, begin, end);
 
 	// update appropriate pointer
-	if (recurseDirection == TRAVERSE_BEFORE) {
+	if (recurseDirection == TRAVERSED_EARLIER) {
 	  curNode.nodeBefore = curID;
 	} else {
 	  curNode.nodeAfter = curID;
