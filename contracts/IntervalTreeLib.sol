@@ -2,6 +2,8 @@ pragma solidity ^0.4.15;
 
 import "./vendor/grove/GroveLib.sol";
 
+import "./IntervalLib.sol";
+
 library IntervalTreeLib {
   using GroveLib for GroveLib.Index;
 
@@ -14,7 +16,7 @@ library IntervalTreeLib {
 
   struct Tree {
     // global table of intervals
-    mapping (uint => Interval) intervals;
+    mapping (uint => IntervalLib.Interval) intervals;
     uint numIntervals;
 
     // tree nodes
@@ -36,12 +38,6 @@ library IntervalTreeLib {
     // references to boundary intervals (GroveLib.Index node IDs)
     bytes32 lowestBeginIndexNode;
     bytes32 highestEndIndexNode;
-  }
-
-  struct Interval {
-    uint begin;
-    uint end;
-    bytes32 data;
   }
 
   function addInterval(Tree storage tree, uint begin, uint end, bytes32 data) internal {
@@ -201,7 +197,7 @@ library IntervalTreeLib {
   {
     intervalID = ++tree.numIntervals;
 
-    tree.intervals[intervalID] = Interval({
+    tree.intervals[intervalID] = IntervalLib.Interval({
       begin: begin,
       end: end,
       data: data
