@@ -8,6 +8,10 @@ library IntervalTreeLib {
   bool constant TRAVERSED_EARLIER = false;
   bool constant TRAVERSED_LATER = true;
 
+  uint8 constant SEARCH_DONE = 0x00;
+  uint8 constant SEARCH_EARLIER = 0x01;
+  uint8 constant SEARCH_LATER = 0x10;
+
   struct Tree {
     // global table of intervals
     mapping (uint => Interval) intervals;
@@ -135,16 +139,24 @@ library IntervalTreeLib {
     internal
     returns (uint[] memory intervalIDs)
   {
+    // traverse tree, collecting matching intervals in memory array of IDs
+
+    // HACK malloc all the things!
+    //   this continually re-allocates ever-growing `intervalIDs` array,
+    //   copying each item in array each time.
     intervalIDs = new uint[](0);
     uint[] memory tempIDs;
     uint[] memory addedIDs;
+
+    // track whether search is done, or if we need to recurse in either
+    // direction
+    uint8 searchNext;
+
     uint i;
-    bool searchLower;
-    bool searchHigher;
 
     uint curID = tree.rootNode;
     var curNode = tree.nodes[curID];
-    (addedIDs, searchLower, searchHigher) = _searchNode(curNode, point);
+    (addedIDs, searchNext) = _searchNode(curNode, point);
     tempIDs = new uint[](intervalIDs.length + addedIDs.length);
     for (i = 0; i < intervalIDs.length; i++) {
       tempIDs[i] = intervalIDs[i];
@@ -154,10 +166,10 @@ library IntervalTreeLib {
     }
     intervalIDs = tempIDs;
 
-    while (searchLower || searchHigher) {
-      if (searchLower) {
+    while (searchNext != SEARCH_DONE) {
+      if (searchNext == SEARCH_EARLIER) {
 	curID = curNode.nodeBefore;
-      } else { // searchHigher
+      } else { // SEARCH_LATER
 	curID = curNode.nodeAfter;
       }
       if (curID == 0x0) {
@@ -165,7 +177,7 @@ library IntervalTreeLib {
       }
 
       curNode = tree.nodes[curID];
-      (addedIDs, searchLower, searchHigher) = _searchNode(curNode, point);
+      (addedIDs, searchNext) = _searchNode(curNode, point);
 
       tempIDs = new uint[](intervalIDs.length + addedIDs.length);
       for (i = 0; i < intervalIDs.length; i++) {
@@ -242,16 +254,24 @@ library IntervalTreeLib {
   function _searchNode(Node storage node, uint point)
     constant
     internal
-    returns (uint[] memory intervalIDs, bool searchLower, bool searchHigher)
+    returns (uint[] memory intervalIDs, uint8 searchNext)
   {
     uint[] memory _intervalIDs = new uint[](node.count);
     uint num = 0;
 
     bytes32 cur;
 
-    if (point < node.center) {
-      searchLower = true;
-      searchHigher = false;
+    if (point == node.center) {
+      searchNext = SEARCH_DONE;
+
+      cur = node.lowestBeginIndexNode;
+      while (cur != 0x0) {
+	_intervalIDs[num] = uint(node.beginIndex.getNodeId(cur));
+	num++;
+	cur = _next(node, cur);
+      }
+    } else if (point < node.center) {
+      searchNext = SEARCH_EARLIER;
 
       cur = node.lowestBeginIndexNode;
       while (cur != 0x0) {
@@ -265,11 +285,8 @@ library IntervalTreeLib {
 
 	cur = _next(node, cur);
       }
-    }
-
-    if (point >= node.center) {
-      searchHigher = true;
-      searchLower = false;
+    } else if (point > node.center) {
+      searchNext = SEARCH_LATER;
 
       cur = node.highestEndIndexNode;
       while (cur != 0x0) {
