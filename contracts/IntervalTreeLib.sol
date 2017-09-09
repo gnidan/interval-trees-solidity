@@ -5,6 +5,9 @@ import "./vendor/grove/GroveLib.sol";
 library IntervalTreeLib {
   using GroveLib for GroveLib.Index;
 
+  bool constant TRAVERSE_BEFORE = false;
+  bool constant TRAVERSE_AFTER = true;
+
   struct Tree {
     // global table of intervals
     mapping (uint => Interval) intervals;
@@ -40,6 +43,7 @@ library IntervalTreeLib {
   function addInterval(Tree storage tree, uint begin, uint end, bytes32 data) internal {
     uint intervalID = _createInterval(tree, begin, end, data);
 
+    // if the tree is empty, create the root
     if (tree.rootNode == 0) {
       var nodeID = _createNode(tree, begin, end);
       tree.rootNode = nodeID;
@@ -50,37 +54,56 @@ library IntervalTreeLib {
       return;
     }
 
+    // depth-first search tree for place to add interval.
+    // for each step of the search:
+    //   if the new interval contains the current node's center:
+    //     add interval to current node
+    //     stop search
+    //
+    //   if the new interval < center:
+    //     recurse "before"
+    //   if the new interval > center:
+    //     recurse "after"
     uint curID = tree.rootNode;
-    var curNode = tree.nodes[curID];
-
+    Node storage curNode = tree.nodes[curID];
     bool found = false;
-
     while (!found) {
-      bool updateBefore = false;
+      // track direction of recursion each step, to update correct pointer
+      // upon needing to add a new node
+      bool recurseDirection;
 
       if (end <= curNode.center) {
+	// traverse before
 	curID = curNode.nodeBefore;
-	updateBefore = true;
+	recurseDirection = TRAVERSE_BEFORE;
       } else if (begin > curNode.center) {
+	// traverse after
 	curID = curNode.nodeAfter;
+	recurseDirection = TRAVERSE_AFTER;
       } else {
+	// found!
 	found = true;
 	break;
       }
 
+      // if traversing yields null pointer for child node, must create
       if (curID == 0) {
 	curID = _createNode(tree, begin, end);
 
-	if (updateBefore) {
+	// update appropriate pointer
+	if (recurseDirection == TRAVERSE_BEFORE) {
 	  curNode.nodeBefore = curID;
 	} else {
 	  curNode.nodeAfter = curID;
 	}
       }
 
+      // fetch node definition for new curID + update var
       curNode = tree.nodes[curID];
     }
 
+    // loop exits with curNode set to correct location for interval
+    // add it!
     _addIntervalToNode(curNode, begin, end, intervalID);
   }
 
