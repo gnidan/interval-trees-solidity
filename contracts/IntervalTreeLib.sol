@@ -3,9 +3,12 @@ pragma solidity ^0.4.15;
 import "./vendor/grove/GroveLib.sol";
 
 import "./IntervalLib.sol";
+import "./IntervalListLib.sol";
 
 library IntervalTreeLib {
   using GroveLib for GroveLib.Index;
+  using IntervalLib for IntervalLib.Interval;
+  using IntervalListLib for IntervalListLib.List;
 
   bool constant TRAVERSED_EARLIER = false;
   bool constant TRAVERSED_LATER = true;
@@ -32,12 +35,8 @@ library IntervalTreeLib {
     uint nodeBefore;
     uint nodeAfter;
     uint count;
-    GroveLib.Index beginIndex;
-    GroveLib.Index endIndex;
 
-    // references to boundary intervals (GroveLib.Index node IDs)
-    bytes32 lowestBeginIndexNode;
-    bytes32 highestEndIndexNode;
+    IntervalListLib.List intervals;
   }
 
   function addInterval(Tree storage tree, uint begin, uint end, bytes32 data) internal {
@@ -211,10 +210,7 @@ library IntervalTreeLib {
       nodeBefore: 0,
       nodeAfter: 0,
       count: 0,
-      lowestBeginIndexNode: 0x0,
-      highestEndIndexNode: 0x0,
-      beginIndex: GroveLib.Index(sha3(this, bytes32(nodeID * 2))),
-      endIndex: GroveLib.Index(sha3(this, bytes32(nodeID * 2 + 1)))
+      intervals: IntervalListLib.createNew(nodeID)
     });
   }
 
@@ -223,25 +219,25 @@ library IntervalTreeLib {
     var _begin = _getBeginIndexKey(begin);
     var _end = _getEndIndexKey(end);
 
-    node.beginIndex.insert(_intervalID, _begin);
-    node.endIndex.insert(_intervalID, _end);
+    node.intervals.beginIndex.insert(_intervalID, _begin);
+    node.intervals.endIndex.insert(_intervalID, _end);
     node.count++;
 
     if (node.count == 1) {
-      node.lowestBeginIndexNode = node.beginIndex.root;
-      node.highestEndIndexNode = node.endIndex.root;
+      node.intervals.lowestBegin = node.intervals.beginIndex.root;
+      node.intervals.highestEnd = node.intervals.endIndex.root;
 
       return;
     }
 
-    var newLowest = node.beginIndex.getPreviousNode(node.lowestBeginIndexNode);
+    var newLowest = node.intervals.beginIndex.getPreviousNode(node.intervals.lowestBegin);
     if (newLowest != 0x0) {
-      node.lowestBeginIndexNode = newLowest;
+      node.intervals.lowestBegin = newLowest;
     }
 
-    var newHighest = node.endIndex.getNextNode(node.highestEndIndexNode);
+    var newHighest = node.intervals.endIndex.getNextNode(node.intervals.highestEnd);
     if (newHighest != 0x0) {
-      node.highestEndIndexNode = newHighest;
+      node.intervals.highestEnd = newHighest;
     }
   }
 
@@ -270,9 +266,9 @@ library IntervalTreeLib {
        *
        * collect (all) matching intervals (every interval in node, by def)
        */
-      cur = node.lowestBeginIndexNode;
+      cur = node.intervals.lowestBegin;
       while (cur != 0x0) {
-	_intervalIDs[num] = uint(node.beginIndex.getNodeId(cur));
+	_intervalIDs[num] = uint(node.intervals.beginIndex.getNodeId(cur));
 	num++;
 	cur = _next(node, cur);
       }
@@ -308,14 +304,14 @@ library IntervalTreeLib {
        *    this works because intervals contained in a node are guaranteed to
        *    contain `center`
        */
-      cur = node.lowestBeginIndexNode;
+      cur = node.intervals.lowestBegin;
       while (cur != 0x0) {
 	uint begin = _begin(node, cur);
 	if (begin > point) {
 	  break;
 	}
 
-	_intervalIDs[num] = uint(node.beginIndex.getNodeId(cur));
+	_intervalIDs[num] = uint(node.intervals.beginIndex.getNodeId(cur));
 	num++;
 
 	cur = _next(node, cur);
@@ -351,14 +347,14 @@ library IntervalTreeLib {
        *    this works because intervals contained in a node are guaranteed to
        *    contain `center`
        */
-      cur = node.highestEndIndexNode;
+      cur = node.intervals.highestEnd;
       while (cur != 0x0) {
 	uint end = _end(node, cur);
 	if (end <= point) {
 	  break;
 	}
 
-	_intervalIDs[num] = uint(node.endIndex.getNodeId(cur));
+	_intervalIDs[num] = uint(node.intervals.endIndex.getNodeId(cur));
 	num++;
 
 	cur = _previous(node, cur);
@@ -389,19 +385,19 @@ library IntervalTreeLib {
    * Grove linked list traversal
    */
   function _begin(Node storage node, bytes32 indexNode) constant returns (uint) {
-    return _getBegin(node.beginIndex.getNodeValue(indexNode));
+    return _getBegin(node.intervals.beginIndex.getNodeValue(indexNode));
   }
 
   function _end(Node storage node, bytes32 indexNode) constant returns (uint) {
-    return _getEnd(node.endIndex.getNodeValue(indexNode));
+    return _getEnd(node.intervals.endIndex.getNodeValue(indexNode));
   }
 
   function _next(Node storage node, bytes32 cur) constant returns (bytes32) {
-    return node.beginIndex.getNextNode(cur);
+    return node.intervals.beginIndex.getNextNode(cur);
   }
 
   function _previous(Node storage node, bytes32 cur) constant returns (bytes32) {
-    return node.endIndex.getPreviousNode(cur);
+    return node.intervals.endIndex.getPreviousNode(cur);
   }
 
   /*
