@@ -116,9 +116,9 @@ library IntervalTreeLib {
    */
   function intervalsAt(Tree storage tree, uint point)
     constant
-    returns (uint)
+    returns (uint count)
   {
-    return search(tree, point).length;
+    count = search(tree, point).length;
   }
 
   function intervalAt(Tree storage tree, uint point, uint offset)
@@ -139,55 +139,56 @@ library IntervalTreeLib {
     internal
     returns (uint[] memory intervalIDs)
   {
-    // traverse tree, collecting matching intervals in memory array of IDs
+    // can't search empty trees
+    require(tree.rootNode != 0x0);
 
-    // HACK malloc all the things!
-    //   this continually re-allocates ever-growing `intervalIDs` array,
-    //   copying each item in array each time.
+    // HACK repeatedly mallocs new arrays of matching interval IDs
     intervalIDs = new uint[](0);
     uint[] memory tempIDs;
-    uint[] memory addedIDs;
+    uint[] memory matchingIDs;
+    uint i;  // for list copying loops
 
-    // track whether search is done, or if we need to recurse in either
-    // direction
-    uint8 searchNext;
-
-    uint i;
-
+    /*
+     * search traversal
+     *
+     * starting at root node
+     */
     uint curID = tree.rootNode;
-    var curNode = tree.nodes[curID];
-    (addedIDs, searchNext) = _searchNode(curNode, point);
-    tempIDs = new uint[](intervalIDs.length + addedIDs.length);
-    for (i = 0; i < intervalIDs.length; i++) {
-      tempIDs[i] = intervalIDs[i];
-    }
-    for (i = 0; i < addedIDs.length; i++) {
-      tempIDs[i + intervalIDs.length] = addedIDs[i];
-    }
-    intervalIDs = tempIDs;
+    uint8 searchNext;
+    do {
+      Node storage curNode = tree.nodes[curID];
 
-    while (searchNext != SEARCH_DONE) {
+      /*
+       * search current node
+       */
+      (matchingIDs, searchNext) = _searchNode(curNode, point);
+
+      /*
+       * add matching intervals to results array
+       *
+       * allocate temp array and copy in both prior and new matches
+       */
+      if (matchingIDs.length > 0) {
+	tempIDs = new uint[](intervalIDs.length + matchingIDs.length);
+	for (i = 0; i < intervalIDs.length; i++) {
+	  tempIDs[i] = intervalIDs[i];
+	}
+	for (i = 0; i < matchingIDs.length; i++) {
+	  tempIDs[i + intervalIDs.length] = matchingIDs[i];
+	}
+	intervalIDs = tempIDs;
+      }
+
+      /*
+       * recurse according to node search results
+       */
       if (searchNext == SEARCH_EARLIER) {
 	curID = curNode.nodeBefore;
-      } else { // SEARCH_LATER
+      } else if (searchNext == SEARCH_LATER) { // SEARCH_LATER
 	curID = curNode.nodeAfter;
       }
-      if (curID == 0x0) {
-	break;
-      }
 
-      curNode = tree.nodes[curID];
-      (addedIDs, searchNext) = _searchNode(curNode, point);
-
-      tempIDs = new uint[](intervalIDs.length + addedIDs.length);
-      for (i = 0; i < intervalIDs.length; i++) {
-	tempIDs[i] = intervalIDs[i];
-      }
-      for (i = 0; i < addedIDs.length; i++) {
-	tempIDs[i + intervalIDs.length] = addedIDs[i];
-      }
-      intervalIDs = tempIDs;
-    }
+    } while (searchNext != SEARCH_DONE && curID != 0x0);
   }
 
 
@@ -251,6 +252,12 @@ library IntervalTreeLib {
   /*
    * search helpers
    */
+
+  /*
+   * @dev Searches node for matching intervals and how to search next
+   * @param node The node to search
+   * @param point The point to search for
+   */
   function _searchNode(Node storage node, uint point)
     constant
     internal
@@ -262,17 +269,49 @@ library IntervalTreeLib {
     bytes32 cur;
 
     if (point == node.center) {
-      searchNext = SEARCH_DONE;
-
+      /*
+       * case: point exactly matches the node's center
+       *
+       * collect (all) matching intervals (every interval in node, by def)
+       */
       cur = node.lowestBeginIndexNode;
       while (cur != 0x0) {
 	_intervalIDs[num] = uint(node.beginIndex.getNodeId(cur));
 	num++;
 	cur = _next(node, cur);
       }
-    } else if (point < node.center) {
-      searchNext = SEARCH_EARLIER;
 
+      /*
+       * search is done:
+       * no other nodes in tree have intervals containing point
+       */
+      searchNext = SEARCH_DONE;
+    } else if (point < node.center) {
+      /*
+       * case: point is earlier than center.
+       *
+       *
+       * collect matching intervals.
+       *
+       * shortcut:
+       *
+       *   starting with lowest beginning interval, search sorted begin list
+       *   until begin is later than point
+       *
+       *	       point
+       *                 :
+       *                 :   center
+       *                 :     |
+       *        (0) *----:-----|----------o
+       *        (1)    *-:-----|---o
+       *        (-)      x *---|------o
+       *        (-)         *--|--o
+       *        (-)          *-|----o
+       *
+       *
+       *    this works because intervals contained in a node are guaranteed to
+       *    contain `center`
+       */
       cur = node.lowestBeginIndexNode;
       while (cur != 0x0) {
 	uint begin = _begin(node, cur);
@@ -285,9 +324,37 @@ library IntervalTreeLib {
 
 	cur = _next(node, cur);
       }
-    } else if (point > node.center) {
-      searchNext = SEARCH_LATER;
 
+      /*
+       * search proceeds to node containing earlier intervals
+       */
+      searchNext = SEARCH_EARLIER;
+    } else if (point > node.center) {
+      /*
+       * case: point is later than center.
+       *
+       *
+       * collect matching intervals.
+       *
+       * shortcut:
+       *
+       *   starting with highest ending interval, search sorted end list
+       *   until end is earlier than or equal to point
+       *
+       *			    point
+       *			    :
+       *                     center :
+       *                       |    :
+       *            *----------|----:-----o (0)
+       *                   *---|----:-o     (1)
+       *                     *-|----o	    (not matching, done.)
+       *               *-------|---o	    (-)
+       *                    *--|--o	    (-)
+       *
+       *
+       *    this works because intervals contained in a node are guaranteed to
+       *    contain `center`
+       */
       cur = node.highestEndIndexNode;
       while (cur != 0x0) {
 	uint end = _end(node, cur);
@@ -300,8 +367,16 @@ library IntervalTreeLib {
 
 	cur = _previous(node, cur);
       }
+
+      /*
+       * search proceeds to later intervals
+       */
+      searchNext = SEARCH_LATER;
     }
 
+    /*
+     * return correctly-sized array of intervalIDs
+     */
     if (num == _intervalIDs.length) {
       intervalIDs = _intervalIDs;
     } else {
