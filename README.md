@@ -26,19 +26,29 @@ contract HasTree {
 ```
 
 
-#### `addInterval(Tree storage tree, uint begin, uint end, bytes32 data)`
+#### `tree.addInterval(uint begin, uint end, bytes32 data)`
+
+- **`internal`**
 
 Adds an interval `[begin, end)` with `data`.
 
 
-#### `search(Tree storage tree, uint point) constant returns (uint[] memory matchingIDs)`
+#### `tree.search(uint point)`
+
+- **`constant`**
+- **`internal`**
+- **`returns`** `(uint[] memory matchingIDs)`
 
 Searches the tree for intervals containing `point`.
 
-Returns memory array of interval IDs.
+Returns memory array of interval IDs, to retrieve with `tree.getInterval()`
 
 
-#### `getInterval(Tree storage tree, uint intervalID) constant returns (uint begin, uint end, bytes32 data)`
+#### `tree.getInterval(uint intervalID)`
+
+- **`constant`**
+- **`internal`**
+- **`returns`** `(uint begin, uint end, bytes32 data)`
 
 Retrieves interval information for a given interval ID.
 

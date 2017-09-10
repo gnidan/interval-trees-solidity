@@ -37,7 +37,12 @@ library TreeLib {
   /*
    * adding intervals
    */
-  function addInterval(Tree storage tree, uint begin, uint end, bytes32 data) internal {
+  function addInterval(Tree storage tree,
+		       uint begin,
+		       uint end,
+		       bytes32 data)
+    internal
+  {
     uint intervalID = _createInterval(tree, begin, end, data);
 
     // if the tree is empty, create the root
@@ -111,6 +116,7 @@ library TreeLib {
    */
   function getInterval(Tree storage tree, uint intervalID)
     constant
+    internal
     returns (uint begin, uint end, bytes32 data)
   {
     require(intervalID > 0 && intervalID <= tree.numIntervals);
