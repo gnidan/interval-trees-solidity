@@ -1,8 +1,8 @@
 Interval Trees in Solidity
 ==========================
 
-Provides [Interval tree](https://en.wikipedia.org/wiki/Interval_tree) library
-for use in smart contracts.
+Provides an implementation of the [Interval tree](https://en.wikipedia.org/wiki/Interval_tree)
+data structure, as a library for use in smart contracts.
 
 API
 ---
@@ -25,19 +25,21 @@ contract HasTree {
 }
 ```
 
+*See [Example.sol](https://github.com/gnidan/interval-trees-solidity/blob/master/contracts/Example.sol) for a contract that maintains a global collection of interval trees.*
+
 
 #### `tree.addInterval(uint begin, uint end, bytes32 data)`
 
-- **`internal`**
+- **internal**
 
 Adds an interval `[begin, end)` with `data`.
 
 
 #### `tree.search(uint point)`
 
-- **`constant`**
-- **`internal`**
-- **`returns`** `(uint[] memory matchingIDs)`
+- **constant**
+- **internal**
+- **returns** `(uint[] memory matchingIDs)`
 
 Searches the tree for intervals containing `point`.
 
@@ -46,10 +48,21 @@ Returns memory array of interval IDs, to retrieve with `tree.getInterval()`
 
 #### `tree.getInterval(uint intervalID)`
 
-- **`constant`**
-- **`internal`**
-- **`returns`** `(uint begin, uint end, bytes32 data)`
+- **constant**
+- **internal**
+- **returns** `(uint begin, uint end, bytes32 data)`
 
 Retrieves interval information for a given interval ID.
 
 Use in conjunction with `tree.search()`.
+
+
+Notes / Status
+--------------
+
+- Supports adding new intervals and finding intervals containing a point
+- No support currently for interval search
+- Creates unbalanced trees
+
+This project uses @pipermerriam's [Grove](https://github.com/pipermerriam/ethereum-grove)
+data structure for some underlying behavior.
