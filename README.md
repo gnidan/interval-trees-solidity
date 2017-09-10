@@ -1,6 +1,8 @@
 Interval Trees in Solidity
 ==========================
 
+[![Join the chat at https://gitter.im/gnidan/interval-trees-solidity](https://badges.gitter.im/gnidan/interval-trees-solidity.svg)](https://gitter.im/gnidan/interval-trees-solidity?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Provides an implementation of the [Interval tree](https://en.wikipedia.org/wiki/Interval_tree)
 data structure, as a library for use in smart contracts.
 
