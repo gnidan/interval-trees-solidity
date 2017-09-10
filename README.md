@@ -4,6 +4,10 @@ Interval Trees in Solidity
 Provides an implementation of the [Interval tree](https://en.wikipedia.org/wiki/Interval_tree)
 data structure, as a library for use in smart contracts.
 
+A deployed version of this library is available at address
+[0xa7aCE3440fD2D6Afa37d12F18E3A9F25C55D1E47](https://etherscan.io/address/0xa7ace3440fd2d6afa37d12f18e3a9f25c55d1e47).
+
+
 API
 ---
 
