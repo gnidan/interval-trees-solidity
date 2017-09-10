@@ -13,27 +13,27 @@ contract TestTreeLib {
     tree.addInterval(1, 9, 0x1);  // center will be 5
     Assert.equal(tree.numIntervals, 1, "There should be 1 interval");
 
-    Assert.equal(tree.intervalsAt(5), 1, "Point search should find 1 interval");
-    Assert.equal(tree.intervalsAt(0), 0, "Strictly below interval should find 0 intervals");
-    Assert.equal(tree.intervalsAt(9), 0, "Upper boundary exact match should find 0 intervals");
+    Assert.equal(tree.search(5).length, 1, "Point search should find 1 interval");
+    Assert.equal(tree.search(0).length, 0, "Strictly below interval should find 0 intervals");
+    Assert.equal(tree.search(9).length, 0, "Upper boundary exact match should find 0 intervals");
   }
 
   function test1_overlappingIntervalSameNode() {
     tree.addInterval(4, 7, 0x2);
     Assert.equal(tree.numIntervals, 2, "There should be 2 intervals");
 
-    Assert.equal(tree.intervalsAt(5), 2, "Common point should have both intervals");
-    Assert.equal(tree.intervalsAt(3), 1, "Non-overlapped point should only have first interval");
-    Assert.equal(tree.intervalsAt(7), 1, "Upper-bound on only 1 should find 1 match");
+    Assert.equal(tree.search(5).length, 2, "Common point should have both intervals");
+    Assert.equal(tree.search(3).length, 1, "Non-overlapped point should only have first interval");
+    Assert.equal(tree.search(7).length, 1, "Upper-bound on only 1 should find 1 match");
   }
 
   function test2_verlappingIntervalNewNode() {
     tree.addInterval(3, 4, 0x3);
     Assert.equal(tree.numIntervals, 3, "There should be 3 intervals");
 
-    Assert.equal(tree.intervalsAt(5), 2, "Point not in new should find only 2 prior");
-    Assert.equal(tree.intervalsAt(3), 2, "Common point should find 2 intervals");
-    Assert.equal(tree.intervalsAt(4), 2, "Upper-bound on only 2 should find 1 match");
+    Assert.equal(tree.search(5).length, 2, "Point not in new should find only 2 prior");
+    Assert.equal(tree.search(3).length, 2, "Common point should find 2 intervals");
+    Assert.equal(tree.search(4).length, 2, "Upper-bound on only 2 should find 1 match");
   }
 
   function test3_search() {

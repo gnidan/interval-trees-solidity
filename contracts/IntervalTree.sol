@@ -19,14 +19,18 @@ contract IntervalTree {
   }
 
   function intervalsAt(uint point) constant returns (uint) {
-    return tree.intervalsAt(point);
+    return tree.search(point).length;
   }
 
   function intervalAt(uint point, uint offset)
     constant
     returns (uint begin, uint end, bytes32 data)
   {
-    return tree.intervalAt(point, offset);
+    var results = tree.search(point);
+
+    require(offset < results.length);
+
+    return tree.getInterval(results[offset]);
   }
 
 }

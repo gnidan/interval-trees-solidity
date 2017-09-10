@@ -104,26 +104,6 @@ library TreeLib {
   /*
    * search
    */
-  function intervalsAt(Tree storage tree, uint point)
-    constant
-    returns (uint count)
-  {
-    count = search(tree, point).length;
-  }
-
-  function intervalAt(Tree storage tree, uint point, uint offset)
-    constant
-    returns (uint begin, uint end, bytes32 data)
-  {
-    var results = search(tree, point);
-
-    require(offset < results.length);
-
-    var interval = tree.intervals[results[offset]];
-
-    return (interval.begin, interval.end, interval.data);
-  }
-
   function getInterval(Tree storage tree, uint intervalID)
     constant
     returns (uint begin, uint end, bytes32 data)
