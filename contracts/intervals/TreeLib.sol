@@ -124,6 +124,16 @@ library TreeLib {
     return (interval.begin, interval.end, interval.data);
   }
 
+  function getInterval(Tree storage tree, uint intervalID)
+    constant
+    returns (uint begin, uint end, bytes32 data)
+  {
+    require(intervalID > 0 && intervalID <= tree.numIntervals);
+
+    var interval = tree.intervals[intervalID];
+    return (interval.begin, interval.end, interval.data);
+  }
+
   function search(Tree storage tree, uint point)
     constant
     internal
