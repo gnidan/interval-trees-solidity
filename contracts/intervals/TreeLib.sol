@@ -1,11 +1,11 @@
 pragma solidity ^0.4.15;
 
 import "./IntervalLib.sol";
-import "./IntervalListLib.sol";
+import "./ListLib.sol";
 
-library IntervalTreeLib {
+library TreeLib {
   using IntervalLib for IntervalLib.Interval;
-  using IntervalListLib for IntervalListLib.List;
+  using ListLib for ListLib.List;
   // TODO: remove need for redefinition here
   uint8 constant SEARCH_DONE = 0x00;
   uint8 constant SEARCH_EARLIER = 0x01;
@@ -31,7 +31,7 @@ library IntervalTreeLib {
     uint earlier;
     uint later;
 
-    IntervalListLib.List intervals;
+    ListLib.List intervals;
   }
 
   function addInterval(Tree storage tree, uint begin, uint end, bytes32 data) internal {
@@ -202,7 +202,7 @@ library IntervalTreeLib {
     tree.nodes[nodeID] = Node({
       earlier: 0,
       later: 0,
-      intervals: IntervalListLib.createNew(nodeID)
+      intervals: ListLib.createNew(nodeID)
     });
   }
 }

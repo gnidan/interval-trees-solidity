@@ -1,21 +1,22 @@
-var IntervalTree = artifacts.require("./IntervalTree.sol");
-var IntervalTreeLib = artifacts.require("./IntervalTreeLib.sol");
-var IntervalListLib = artifacts.require("./IntervalListLib.sol");
-var IntervalLib = artifacts.require("./IntervalLib.sol");
-
 var GroveLib = artifacts.require("./vendor/grove/GroveLib.sol");
 
+var TreeLib = artifacts.require("./intervals/TreeLib.sol");
+var ListLib = artifacts.require("./intervals/ListLib.sol");
+var IntervalLib = artifacts.require("./intervals/IntervalLib.sol");
+
+var IntervalTree = artifacts.require("./IntervalTree.sol");
+
 module.exports = function(deployer) {
-  deployer.link(GroveLib, [IntervalListLib, IntervalTreeLib, IntervalTree]);
+  deployer.link(GroveLib, [ListLib, TreeLib, IntervalTree]);
 
   deployer.deploy(IntervalLib);
-  deployer.link(IntervalLib, [IntervalListLib, IntervalTreeLib, IntervalTree]);
+  deployer.link(IntervalLib, [ListLib, TreeLib, IntervalTree]);
 
-  deployer.deploy(IntervalListLib);
-  deployer.link(IntervalListLib, [IntervalTreeLib, IntervalTree]);
+  deployer.deploy(ListLib);
+  deployer.link(ListLib, [TreeLib, IntervalTree]);
 
-  deployer.deploy(IntervalTreeLib);
-  deployer.link(IntervalTreeLib, IntervalTree);
+  deployer.deploy(TreeLib);
+  deployer.link(TreeLib, IntervalTree);
 
   deployer.deploy(IntervalTree);
 }

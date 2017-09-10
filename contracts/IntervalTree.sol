@@ -1,11 +1,11 @@
 pragma solidity ^0.4.15;
 
-import "./IntervalTreeLib.sol";
+import "./intervals/TreeLib.sol";
 
 contract IntervalTree {
-  IntervalTreeLib.Tree tree;
+  TreeLib.Tree tree;
 
-  using IntervalTreeLib for IntervalTreeLib.Tree;
+  using TreeLib for TreeLib.Tree;
 
   function IntervalTree() {
   }

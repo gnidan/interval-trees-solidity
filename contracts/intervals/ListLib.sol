@@ -1,10 +1,10 @@
 pragma solidity ^0.4.15;
 
-import "./vendor/grove/GroveLib.sol";
+import "../vendor/grove/GroveLib.sol";
 
 import "./IntervalLib.sol";
 
-library IntervalListLib {
+library ListLib {
   uint8 constant SEARCH_DONE = 0x00;
   uint8 constant SEARCH_EARLIER = 0x01;
   uint8 constant SEARCH_LATER = 0x10;
