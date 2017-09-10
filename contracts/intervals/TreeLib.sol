@@ -34,6 +34,9 @@ library TreeLib {
     ListLib.List intervals;
   }
 
+  /*
+   * adding intervals
+   */
   function addInterval(Tree storage tree, uint begin, uint end, bytes32 data) internal {
     uint intervalID = _createInterval(tree, begin, end, data);
 
@@ -47,16 +50,18 @@ library TreeLib {
       return;
     }
 
-    // depth-first search tree for place to add interval.
-    // for each step of the search:
-    //   if the new interval contains the current node's center:
-    //     add interval to current node
-    //     stop search
-    //
-    //   if the new interval < center:
-    //     recurse "before"
-    //   if the new interval > center:
-    //     recurse "after"
+    /*
+     * depth-first search tree for place to add interval.
+     * for each step of the search:
+     *   if the new interval contains the current node's center:
+     *     add interval to current node
+     *     stop search
+     *
+     *   if the new interval < center:
+     *     recurse "before"
+     *   if the new interval > center:
+     *     recurse "after"
+     */
     uint curID = tree.rootNode;
 
     bool found = false;
@@ -102,7 +107,7 @@ library TreeLib {
   }
 
   /*
-   * search
+   * retrieval
    */
   function getInterval(Tree storage tree, uint intervalID)
     constant
@@ -114,6 +119,9 @@ library TreeLib {
     return (interval.begin, interval.end, interval.data);
   }
 
+  /*
+   * searching
+   */
   function search(Tree storage tree, uint point)
     constant
     internal
@@ -172,7 +180,7 @@ library TreeLib {
 
 
   /*
-   * insert helpers
+   * data create helpers helpers
    */
   function _createInterval(Tree storage tree, uint begin, uint end, bytes32 data)
     internal
