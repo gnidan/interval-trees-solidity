@@ -201,7 +201,7 @@ library TreeLib {
     });
   }
 
-  function _createNode(Tree storage tree) returns (uint nodeID) {
+  function _createNode(Tree storage tree) internal returns (uint nodeID) {
     nodeID = ++tree.numNodes;
     tree.nodes[nodeID] = Node({
       earlier: 0,
