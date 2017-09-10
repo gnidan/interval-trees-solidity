@@ -1,21 +1,18 @@
 pragma solidity ^0.4.15;
 
-import "./vendor/grove/GroveLib.sol";
-
 import "./IntervalLib.sol";
 import "./IntervalListLib.sol";
 
 library IntervalTreeLib {
-  using GroveLib for GroveLib.Index;
   using IntervalLib for IntervalLib.Interval;
   using IntervalListLib for IntervalListLib.List;
-
-  bool constant TRAVERSED_EARLIER = false;
-  bool constant TRAVERSED_LATER = true;
-
+  // TODO: remove need for redefinition here
   uint8 constant SEARCH_DONE = 0x00;
   uint8 constant SEARCH_EARLIER = 0x01;
   uint8 constant SEARCH_LATER = 0x10;
+
+  bool constant TRAVERSED_EARLIER = false;
+  bool constant TRAVERSED_LATER = true;
 
   struct Tree {
     // global table of intervals
@@ -31,10 +28,8 @@ library IntervalTreeLib {
   }
 
   struct Node {
-    uint center;
-    uint nodeBefore;
-    uint nodeAfter;
-    uint count;
+    uint earlier;
+    uint later;
 
     IntervalListLib.List intervals;
   }
@@ -44,11 +39,10 @@ library IntervalTreeLib {
 
     // if the tree is empty, create the root
     if (tree.rootNode == 0) {
-      var nodeID = _createNode(tree, begin, end);
+      var nodeID = _createNode(tree);
       tree.rootNode = nodeID;
 
-      var node = tree.nodes[nodeID];
-      _addIntervalToNode(node, begin, end, intervalID);
+      tree.nodes[nodeID].intervals.add(begin, end, intervalID);
 
       return;
     }
@@ -64,20 +58,23 @@ library IntervalTreeLib {
     //   if the new interval > center:
     //     recurse "after"
     uint curID = tree.rootNode;
-    Node storage curNode = tree.nodes[curID];
+
     bool found = false;
-    while (!found) {
+    do {
+      Node storage curNode = tree.nodes[curID];
+
+
       // track direction of recursion each step, to update correct pointer
       // upon needing to add a new node
       bool recurseDirection;
 
-      if (end <= curNode.center) {
+      if (end <= curNode.intervals.center) {
 	// traverse before
-	curID = curNode.nodeBefore;
+	curID = curNode.earlier;
 	recurseDirection = TRAVERSED_EARLIER;
-      } else if (begin > curNode.center) {
+      } else if (begin > curNode.intervals.center) {
 	// traverse after
-	curID = curNode.nodeAfter;
+	curID = curNode.later;
 	recurseDirection = TRAVERSED_LATER;
       } else {
 	// found!
@@ -87,23 +84,21 @@ library IntervalTreeLib {
 
       // if traversing yields null pointer for child node, must create
       if (curID == 0) {
-	curID = _createNode(tree, begin, end);
+	curID = _createNode(tree);
 
 	// update appropriate pointer
 	if (recurseDirection == TRAVERSED_EARLIER) {
-	  curNode.nodeBefore = curID;
+	  curNode.earlier = curID;
 	} else {
-	  curNode.nodeAfter = curID;
+	  curNode.later = curID;
 	}
+
+	// creating a new node means we've found the place to put the interval
+	found = true;
       }
+    } while (!found);
 
-      // fetch node definition for new curID + update var
-      curNode = tree.nodes[curID];
-    }
-
-    // loop exits with curNode set to correct location for interval
-    // add it!
-    _addIntervalToNode(curNode, begin, end, intervalID);
+    tree.nodes[curID].intervals.add(begin, end, intervalID);
   }
 
   /*
@@ -156,7 +151,7 @@ library IntervalTreeLib {
       /*
        * search current node
        */
-      (matchingIDs, searchNext) = _searchNode(curNode, point);
+      (matchingIDs, searchNext) = curNode.intervals.matching(point);
 
       /*
        * add matching intervals to results array
@@ -178,11 +173,10 @@ library IntervalTreeLib {
        * recurse according to node search results
        */
       if (searchNext == SEARCH_EARLIER) {
-	curID = curNode.nodeBefore;
+	curID = curNode.earlier;
       } else if (searchNext == SEARCH_LATER) { // SEARCH_LATER
-	curID = curNode.nodeAfter;
+	curID = curNode.later;
       }
-
     } while (searchNext != SEARCH_DONE && curID != 0x0);
   }
 
@@ -203,223 +197,12 @@ library IntervalTreeLib {
     });
   }
 
-  function _createNode(Tree storage tree, uint begin, uint end) returns (uint nodeID) {
+  function _createNode(Tree storage tree) returns (uint nodeID) {
     nodeID = ++tree.numNodes;
     tree.nodes[nodeID] = Node({
-      center: begin + (end - begin) / 2,
-      nodeBefore: 0,
-      nodeAfter: 0,
-      count: 0,
+      earlier: 0,
+      later: 0,
       intervals: IntervalListLib.createNew(nodeID)
     });
-  }
-
-  function _addIntervalToNode(Node storage node, uint begin, uint end, uint intervalID) {
-    var _intervalID = bytes32(intervalID);
-    var _begin = _getBeginIndexKey(begin);
-    var _end = _getEndIndexKey(end);
-
-    node.intervals.beginIndex.insert(_intervalID, _begin);
-    node.intervals.endIndex.insert(_intervalID, _end);
-    node.count++;
-
-    if (node.count == 1) {
-      node.intervals.lowestBegin = node.intervals.beginIndex.root;
-      node.intervals.highestEnd = node.intervals.endIndex.root;
-
-      return;
-    }
-
-    var newLowest = node.intervals.beginIndex.getPreviousNode(node.intervals.lowestBegin);
-    if (newLowest != 0x0) {
-      node.intervals.lowestBegin = newLowest;
-    }
-
-    var newHighest = node.intervals.endIndex.getNextNode(node.intervals.highestEnd);
-    if (newHighest != 0x0) {
-      node.intervals.highestEnd = newHighest;
-    }
-  }
-
-  /*
-   * search helpers
-   */
-
-  /*
-   * @dev Searches node for matching intervals and how to search next
-   * @param node The node to search
-   * @param point The point to search for
-   */
-  function _searchNode(Node storage node, uint point)
-    constant
-    internal
-    returns (uint[] memory intervalIDs, uint8 searchNext)
-  {
-    uint[] memory _intervalIDs = new uint[](node.count);
-    uint num = 0;
-
-    bytes32 cur;
-
-    if (point == node.center) {
-      /*
-       * case: point exactly matches the node's center
-       *
-       * collect (all) matching intervals (every interval in node, by def)
-       */
-      cur = node.intervals.lowestBegin;
-      while (cur != 0x0) {
-	_intervalIDs[num] = uint(node.intervals.beginIndex.getNodeId(cur));
-	num++;
-	cur = _next(node, cur);
-      }
-
-      /*
-       * search is done:
-       * no other nodes in tree have intervals containing point
-       */
-      searchNext = SEARCH_DONE;
-    } else if (point < node.center) {
-      /*
-       * case: point is earlier than center.
-       *
-       *
-       * collect matching intervals.
-       *
-       * shortcut:
-       *
-       *   starting with lowest beginning interval, search sorted begin list
-       *   until begin is later than point
-       *
-       *	       point
-       *                 :
-       *                 :   center
-       *                 :     |
-       *        (0) *----:-----|----------o
-       *        (1)    *-:-----|---o
-       *        (-)      x *---|------o
-       *        (-)         *--|--o
-       *        (-)          *-|----o
-       *
-       *
-       *    this works because intervals contained in a node are guaranteed to
-       *    contain `center`
-       */
-      cur = node.intervals.lowestBegin;
-      while (cur != 0x0) {
-	uint begin = _begin(node, cur);
-	if (begin > point) {
-	  break;
-	}
-
-	_intervalIDs[num] = uint(node.intervals.beginIndex.getNodeId(cur));
-	num++;
-
-	cur = _next(node, cur);
-      }
-
-      /*
-       * search proceeds to node containing earlier intervals
-       */
-      searchNext = SEARCH_EARLIER;
-    } else if (point > node.center) {
-      /*
-       * case: point is later than center.
-       *
-       *
-       * collect matching intervals.
-       *
-       * shortcut:
-       *
-       *   starting with highest ending interval, search sorted end list
-       *   until end is earlier than or equal to point
-       *
-       *			    point
-       *			    :
-       *                     center :
-       *                       |    :
-       *            *----------|----:-----o (0)
-       *                   *---|----:-o     (1)
-       *                     *-|----o	    (not matching, done.)
-       *               *-------|---o	    (-)
-       *                    *--|--o	    (-)
-       *
-       *
-       *    this works because intervals contained in a node are guaranteed to
-       *    contain `center`
-       */
-      cur = node.intervals.highestEnd;
-      while (cur != 0x0) {
-	uint end = _end(node, cur);
-	if (end <= point) {
-	  break;
-	}
-
-	_intervalIDs[num] = uint(node.intervals.endIndex.getNodeId(cur));
-	num++;
-
-	cur = _previous(node, cur);
-      }
-
-      /*
-       * search proceeds to later intervals
-       */
-      searchNext = SEARCH_LATER;
-    }
-
-    /*
-     * return correctly-sized array of intervalIDs
-     */
-    if (num == _intervalIDs.length) {
-      intervalIDs = _intervalIDs;
-    } else {
-      intervalIDs = new uint[](num);
-      for (uint i = 0; i < num; i++) {
-	intervalIDs[i] = _intervalIDs[i];
-      }
-    }
-  }
-
-
-
-  /*
-   * Grove linked list traversal
-   */
-  function _begin(Node storage node, bytes32 indexNode) constant returns (uint) {
-    return _getBegin(node.intervals.beginIndex.getNodeValue(indexNode));
-  }
-
-  function _end(Node storage node, bytes32 indexNode) constant returns (uint) {
-    return _getEnd(node.intervals.endIndex.getNodeValue(indexNode));
-  }
-
-  function _next(Node storage node, bytes32 cur) constant returns (bytes32) {
-    return node.intervals.beginIndex.getNextNode(cur);
-  }
-
-  function _previous(Node storage node, bytes32 cur) constant returns (bytes32) {
-    return node.intervals.endIndex.getPreviousNode(cur);
-  }
-
-  /*
-   * uint / int conversions for Grove nodeIDs
-   */
-  function _getBeginIndexKey(uint begin) constant internal returns (int) {
-    // convert to signed int in order-preserving manner
-    return int(begin - 0x8000000000000000000000000000000000000000000000000000000000000000);
-  }
-
-  function _getEndIndexKey(uint end) constant internal returns (int) {
-    // convert to signed int in order-preserving manner
-    return int(end - 0x8000000000000000000000000000000000000000000000000000000000000000);
-  }
-
-  function _getBegin(int beginIndexKey) constant internal returns (uint) {
-    // convert to unsigned int in order-preserving manner
-    return uint(beginIndexKey) + 0x8000000000000000000000000000000000000000000000000000000000000000;
-  }
-
-  function _getEnd(int endIndexKey) constant internal returns (uint) {
-    // convert to unsigned int in order-preserving manner
-    return uint(endIndexKey) + 0x8000000000000000000000000000000000000000000000000000000000000000;
   }
 }

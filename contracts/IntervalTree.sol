@@ -1,7 +1,5 @@
 pragma solidity ^0.4.15;
 
-import "./vendor/grove/GroveLib.sol";
-
 import "./IntervalTreeLib.sol";
 
 contract IntervalTree {
