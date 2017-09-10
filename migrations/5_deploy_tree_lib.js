@@ -6,12 +6,8 @@ var IntervalLib = artifacts.require("./intervals/IntervalLib.sol");
 
 
 module.exports = function(deployer) {
-  deployer.link(GroveLib, [ListLib, TreeLib]);
-
-  deployer.deploy(IntervalLib);
-  deployer.link(IntervalLib, [ListLib, TreeLib]);
-
-  deployer.deploy(ListLib);
+  deployer.link(GroveLib, TreeLib);
+  deployer.link(IntervalLib, TreeLib);
   deployer.link(ListLib, TreeLib);
 
   deployer.deploy(TreeLib);
