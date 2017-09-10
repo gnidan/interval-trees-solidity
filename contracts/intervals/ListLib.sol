@@ -25,6 +25,13 @@ library ListLib {
     bytes32 highestEnd;
   }
 
+  function createNew()
+    internal
+    returns (List)
+  {
+    return createNew(block.number);
+  }
+
   function createNew(uint id)
     internal
     returns (List)
